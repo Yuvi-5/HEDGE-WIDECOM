@@ -1,0 +1,23 @@
+{
+  "M1_p50_latency_s": 0.30481775226587615,
+  "M1_p95_latency_s": 0.30481775226587615,
+  "M1_p99_latency_s": 0.30481775226587615,
+  "M1_mean_latency_s": 0.2896145273966141,
+  "M2_mean_cost_usd": 2.6354231784879585,
+  "M3_system_utilisation": 0.0,
+  "M4_utilisation_variance": 0.0,
+  "M5_market_revenue_usd": 0.0,
+  "M6_rejection_rate": 0.8911402547018639,
+  "M7_carbon_g_per_task": 2196.1736285966385,
+  "M8_quote_variance": 2.61012178719941e-54,
+  "M9_edge_service_fraction": 0.0,
+  "M10_completion_rate": 0.10885974529813613,
+  "M11_jfi": 1.0,
+  "M12_tsfr": 0.0,
+  "M13_err": 0.0,
+  "M14_rmse_load": 0.0,
+  "M14_rmse_revenue": 1.0,
+  "M15_energy_joules_per_task": 98827813.28684874,
+  "M16_myerson_efficiency": 0.7287866902885433,
+  "M17_primary_offload_fraction": 0.0
+}

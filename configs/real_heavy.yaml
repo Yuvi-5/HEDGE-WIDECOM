@@ -1,0 +1,102 @@
+# Real-data heavy campaign: REAL EUA Melbourne topology (125 base stations,
+# subsampled to N_nodes) + REAL Alibaba 2018 batch-task trace arrivals.
+#
+# CALIBRATION FINDING (Part 3 prep, first attempt): with the trace preprocessed
+# via the LIGHT/default task_model constants (W_MIN/MAX=1e9/1e11 cycles,
+# D_MIN/MAX=0.05/5.0s, S_MIN/MAX=1e6/2e7 bits), rejection rate was IDENTICAL
+# to 13 significant figures across trace_target_lambda in {2,4} and both
+# calibration seeds (0.6943396226415094) -- proof that rejection is driven by
+# per-task (s,w,d) STRUCTURAL infeasibility (fixed at preprocessing time, real
+# Alibaba jobs are compute-heavy with generous deadlines relative to any edge
+# node's 1-5GHz speed), not by arrival-rate saturation. Edge service fraction
+# (M9) was exactly 0 at every lambda tried: cloud's raw execution speed
+# (1e12 Hz) dominates AFGM latency selection for these workload sizes
+# regardless of price. Raising trace_target_lambda cannot fix a structural
+# (not load-dependent) infeasibility.
+#
+# Fix: remap_to_heavy_envelope rank-transforms each trace task's w/s/d
+# percentile (within the trace's own distribution) into an edge-native
+# envelope, reusing heavy_load.yaml's exact target ranges (small compute, tight
+# deadline, data-heavy enough to make cloud's transfer time the bottleneck).
+# This preserves each task's REAL relative heterogeneity (a job that needed
+# more compute than 90% of the trace still needs more than 90% after
+# remapping) while moving the absolute scale into a regime edge nodes can
+# serve. Caveat: w/s/d are remapped independently, so joint correlation
+# between compute/memory/duration in the original trace is not preserved
+# (disclosed, not silent -- see remap_to_heavy_envelope docstring).
+#
+# The only calibration lever after that is arrivals.trace_target_lambda (the
+# per-node arrival-rate target that TraceScheduler rescales the trace's
+# timestamps to match, same semantics as arrivals.lambda_bar for Poisson).
+#
+# lambda_star calibration: see outputs/real_heavy_calibration.csv /
+# .log for the grid search that selected the value below (grid 4-16,
+# 2 seeds, 300s probes, 150s warmup). Chosen lambda_star = 16.0: M3 system
+# utilisation ~0.094 (still climbing with lambda, no plateau reached in the
+# tested range -- differs from heavy_load.yaml's synthetic ~0.05-0.08 plateau,
+# most likely because the real EUA topology (50-of-125 real station positions)
+# distributes load differently than the synthetic uniform-random mesh), M6
+# rejection 0-6.4% (seed-dependent, NOT lambda-dependent -- structural, see
+# above), M9 edge share 100% throughout.
+#
+# SUPERSEDED FINDING (pre coverage-set fix, kept for history): M13
+# (edge-resale) was measured as EXACTLY 0.0 across the entire tested grid at
+# N_nodes=50 with no geographic candidate filtering -- Phase-0 and wholesale
+# resale both saw the FULL topology for every task, so HEDGE's own
+# congestion-responsive admission never let a winner reach genuine overload
+# (diagnosis: this was a missing-C_u architecture gap, not a load/lambda
+# calibration problem). This campaign now uses the fixed architecture:
+# - N_nodes moved 50 -> 125 (full real dataset): the paper's own "5-15
+#   typical candidate nodes" target (Section subsec:phase0) is only met at
+#   full dataset density; N_nodes=50 undershot to ~4.7 mean coverage-set
+#   size at the calibrated 0.25km radius.
+# - cluster_hotspots: true added: hotspot-tier nodes now form a spatially
+#   coherent cluster (seed node + nearest neighbours) rather than scattered
+#   random nodes, so "a handful of cells saturated, neighbours idle" (the
+#   paper's own motivating claim) is geographically real, not just a rate
+#   label on unrelated nodes.
+# Needs fresh calibration (lambda, M3/M6/M9/M13) under this architecture --
+# do not assume the old lambda_star=16.0 / rejection numbers above still
+# hold; they were measured under the pre-fix, non-coverage-gated candidate
+# selection.
+_base_: "default.yaml"
+
+label: "hedge_real_heavy"
+
+simulation:
+  duration: 3600.0
+  warmup_duration: 300.0
+  n_seeds: 30
+
+topology:
+  source: "eua_melbourne"
+  N_nodes: 125
+  eua_data_path: "data/eua_melbourne.csv"
+  coverage_radius_km: 0.25
+
+arrivals:
+  mode: "alibaba"
+  trace_path: "data/alibaba_1h_subset.parquet"
+  trace_target_lambda: 16.0  # lambda_star from PRE-FIX calibration grid search -- needs re-verification
+  max_tasks: 24000
+  fat_tail: true
+  n_hotspots: 5
+  hotspot_rate_multiplier: 5.0
+  quiet_rate_multiplier: 0.2
+  cluster_hotspots: true
+  remap_to_heavy_envelope: true
+  heavy_w_range: [1.0e+7, 5.0e+7]   # matches heavy_load.yaml task_model.w_min/w_max
+  heavy_d_range: [0.15, 0.5]        # matches heavy_load.yaml task_model.d_min/d_max
+  heavy_s_range: [4.5e+7, 8.0e+7]   # matches heavy_load.yaml task_model.s_min/s_max
+
+market:
+  enable_admission_gate: true
+  enable_phase0: true
+  enable_gc_risk_premium: true
+  enable_coverage_gating: true
+
+output:
+  base_dir: "outputs"
+  log_level: "INFO"
+  save_events: false
+  save_snapshots: false

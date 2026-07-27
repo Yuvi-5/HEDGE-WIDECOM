@@ -1,0 +1,8 @@
+{
+  "n_nodes": 125,
+  "coverage_radius_km": 0.25,
+  "mean_coverage_set_size": 12.68,
+  "min_coverage_set_size": 4,
+  "max_coverage_set_size": 25,
+  "median_coverage_set_size": 12.0
+}

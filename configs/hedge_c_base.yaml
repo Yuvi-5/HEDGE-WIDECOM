@@ -1,0 +1,31 @@
+# HEDGE-C: trimmed mechanism for WIDECOM 2026 submission.
+#
+# Three features cut relative to the full HEDGE mechanism, each via a
+# config flag:
+#   - carbon-aware pricing (pricing.pi_co2 -> 0.0): task pricing no longer
+#     incorporates a per-gram CO2 surcharge.
+#   - Layer 2.5 / SPA competitive shading (pricing.lambda_max -> 0.0): sellers
+#     no longer shade their price down in response to peer competition.
+#   - Kalman-filter load forecasting (predictor.mode -> "instantaneous"):
+#     nodes report their raw instantaneous load instead of a filtered
+#     forecast; this repo does not ship a Kalman predictor at all.
+# The wholesale peer-resale market is not present in this repo's source at
+# all (not merely flag-disabled): a winning edge node always executes the
+# task itself rather than reselling it to a less-loaded peer.
+# Plus K_max raised 4 -> 15 to approximate "full coverage set" fanout: this
+# is an approximation, not an identity, since at K_max=15 the peer pool can
+# be padded from outside a user's own coverage set C_u when C_u itself is
+# smaller than 15.
+_base_: "real_heavy.yaml"
+
+label: "hedge_c_widecom"
+
+hedge:
+  K_max: 15
+
+pricing:
+  pi_co2: 0.0
+  lambda_max: 0.0
+
+predictor:
+  mode: "instantaneous"

@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+*.venv/
+venv/
+
+# Run artifacts (not evidence -- regenerate via scripts/)
+*.log
+outputs/
+
+# OS
+.DS_Store
+Thumbs.db

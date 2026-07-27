@@ -1,0 +1,145 @@
+# HEDGE Simulator Default Configuration
+# All experiments inherit from this file via _base_ override mechanism.
+# Do not hardcode these values in Python code; always read from config.
+
+label: "hedge_default"
+
+# ---------------------------------------------------------------
+# Simulation Parameters
+# ---------------------------------------------------------------
+simulation:
+  duration: 3600.0          # simulation time (seconds)
+  random_seed: 42
+  delta_tp: 0.1             # Kalman/EMA cadence (seconds = 100ms = 10 Hz)
+  delta_q: 0.1              # quote validity window (seconds)
+  warmup_duration: 300.0    # warmup period excluded from metrics (seconds)
+  n_seeds: 30               # seeds for statistical reporting
+
+# ---------------------------------------------------------------
+# Topology
+# ---------------------------------------------------------------
+topology:
+  source: "eua_melbourne"   # "eua_melbourne" | "synthetic"
+  N_nodes: 50               # number of edge nodes (50 or 125)
+  heterogeneous: true       # false = homogeneous (ablation A9)
+  tau_mesh_max: 0.005       # max peer-to-peer delay (seconds = 5ms)
+  tau_c_mean: 0.035         # cloud RTT mean (seconds)
+  tau_c_std: 0.008          # cloud RTT std (seconds)
+  eua_data_path: "data/eua_melbourne.csv"
+
+# ---------------------------------------------------------------
+# Node Heterogeneity Distributions
+# ---------------------------------------------------------------
+node_heterogeneity:
+  f_max_log_mean: 1.099e9   # log(3e9); geometric mean = 3GHz
+  f_max_log_std: 0.5        # log-normal std
+  f_max_min: 1.0e9
+  f_max_max: 5.0e9
+  kappa_log_min: -27        # 10^-27
+  kappa_log_max: -25        # 10^-25
+  rho_min: 2.0e-4           # USD/s
+  rho_max: 1.0e-3
+  pi_E_min: 0.06            # USD/kWh
+  pi_E_max: 0.18
+  beta_min: 40.0            # gCO2/kWh (Nordic hydro)
+  beta_max: 700.0           # gCO2/kWh (coal-heavy)
+  P_idle_options: [20, 30, 50]  # W
+
+# ---------------------------------------------------------------
+# Load Pattern
+# ---------------------------------------------------------------
+arrivals:
+  mode: "poisson"           # "poisson" | "alibaba"
+  lambda_bar: 1.0           # mean arrival rate per node (tasks/second)
+  fat_tail: true            # apply hotspot/quiet node assignment
+  n_hotspots: 5
+  hotspot_rate_multiplier: 5.0
+  quiet_rate_multiplier: 0.2
+  alibaba_data_path: "data/alibaba_1h_subset.parquet"
+
+# ---------------------------------------------------------------
+# Task Model
+# ---------------------------------------------------------------
+task_model:
+  # Calibrated so edge nodes (1-5 GHz) can actually serve tasks:
+  #   w_max=5e9 at f_max=5GHz -> 1s execution, fits in d_max=10s
+  #   d_min=0.5s > cloud RTT+upload floor (~175ms) -> cloud always feasible, zero rejections
+  #   Small tasks (w~1e8) at edge: ~25ms latency vs cloud ~175ms -> edge wins on speed+price
+  #   Large tasks (w~5e9) at edge: ~1.7s vs cloud ~175ms -> cloud wins on latency
+  w_min: 1.0e8              # CPU cycles (100M: short AR/VR frame or sensor inference)
+  w_max: 5.0e9              # CPU cycles (5B: heavy video transcode, max 1s at 5GHz edge)
+  s_min: 1.0e6              # input bits (1 MB)
+  s_max: 1.0e7              # input bits (10 MB; limits cloud upload to 100ms at 100Mbps)
+  d_min: 0.5                # deadline (seconds; above cloud floor of ~175ms)
+  d_max: 10.0               # deadline (seconds; all medium tasks feasible on any edge node)
+  s_ret_fraction: 0.01      # return data = 1% of input
+  a_buyer_min: 0.5          # buyer valuation (USD)
+  a_buyer_max: 10.0
+
+# ---------------------------------------------------------------
+# HEDGE Protocol Parameters
+# ---------------------------------------------------------------
+hedge:
+  K_max: 4                  # max peers per RFQ fanout
+  H_max: 2                  # max resale hops
+  tau_lock: 0.02            # reservation timeout (seconds = 20ms)
+  theta_commit: 0.02        # Phase-0 commit timeout (seconds)
+  W_fail: 20                # sliding window for P_hat_fail
+  theta_risk: 0.12          # GC risk premium (dimensionless)
+  epsilon_trans: 0.05       # min resale margin (fraction of C1)
+  x_weight: 0.5             # Phase 0 price weight
+  y_weight: 0.5             # Phase 0 latency weight
+  alpha_u: 0.5              # AFGM latency weight
+  gamma_u: 0.5              # AFGM price weight
+
+# ---------------------------------------------------------------
+# Pricing Parameters
+# ---------------------------------------------------------------
+pricing:
+  a_ref: 5.0e-10            # USD/cycle (deployment-wide reference valuation)
+  b_shape: 1.0              # demand curve shape parameter
+  eta: 1.0                  # markup gain (sweep: 0.5, 1.0, 2.0)
+  lambda_max: 0.5           # SPA aggressiveness cap (sweep: 0.0, 0.3, 0.7)
+  R_ref: 1.0                # EMA revenue reference (USD/RFQ)
+  alpha_R: 0.2              # EMA smoothing factor
+  pi_co2: 5.0e-5            # carbon price (USD/g)
+  mu_c: 1.5                 # cloud markup multiplier
+
+# ---------------------------------------------------------------
+# Cloud Node Parameters
+# ---------------------------------------------------------------
+cloud:
+  f_max: 1.0e12             # effective cloud compute (Hz)
+  kappa: 1.0e-27            # efficient hyperscale
+  rho: 1.0e-4               # CAPEX rate (USD/s)
+  beta: 80.0                # carbon (green PPA contracts, gCO2/kWh)
+  pi_E: 0.06                # electricity (bulk rate, USD/kWh)
+  P_idle: 0.0               # hyperscale idle power (not tracked)
+
+# ---------------------------------------------------------------
+# Predictor Parameters
+# ---------------------------------------------------------------
+predictor:
+  mode: "instantaneous"
+
+# ---------------------------------------------------------------
+# Market Controls
+# ---------------------------------------------------------------
+market:
+  enable_admission_gate: true
+
+# ---------------------------------------------------------------
+# Experiment
+# ---------------------------------------------------------------
+experiment:
+  algorithm: "HEDGE"            # "HEDGE" | "B0"-"B7" -- override per sweep variant
+
+# ---------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------
+output:
+  base_dir: "outputs"
+  log_level: "INFO"         # DEBUG | INFO | WARNING | ERROR
+  save_events: true
+  save_snapshots: true
+  snapshot_interval: 0.1    # seconds (every cadence step)
